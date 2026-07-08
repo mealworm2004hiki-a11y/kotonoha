@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>言の葉</title>
+<meta name="description" content="読書中に出会った知らない言葉を調べて集める、あなただけの単語帳">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="言の葉">
+<meta name="theme-color" id="themeColorMeta" content="#F6F0E3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="appbar">
+  <h1 class="brand">言の葉</h1>
+  <button class="iconbtn" id="settingsBtn" aria-label="設定">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.2"/>
+      <line x1="4" y1="17" x2="20" y2="17"/><circle cx="15" cy="17" r="2.2"/>
+    </svg>
+  </button>
+</header>
+
+<main>
+
+<section id="view-lookup" class="view active">
+  <div class="book-row">
+    <span class="book-label">記録先の本</span>
+    <select id="bookSelect" aria-label="記録先の本"></select>
+  </div>
+
+  <form id="lookupForm" class="input-row" autocomplete="off">
+    <input type="text" id="lookupInput" placeholder="調べたい言葉" enterkeyhint="search">
+    <button type="button" class="iconbtn boxed" id="cameraBtn" aria-label="写真で調べる">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="7" width="18" height="13" rx="2.5"/>
+        <path d="M9 7l1.2-2.4h3.6L15 7"/><circle cx="12" cy="13.5" r="3.4"/>
+      </svg>
+    </button>
+    <button type="submit" class="primary" id="searchBtn">調べる</button>
+  </form>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+  <p class="hint-line">読めない漢字は、その言葉が大きく写るように撮ってください。</p>
+
+  <p id="lookupStatus" class="status" hidden></p>
+
+  <article id="resultCard" class="card result" hidden>
+    <p class="reading" id="resReading"></p>
+    <p class="word" id="resWord"></p>
+    <div class="meaning-block">
+      <p class="meaning" id="resMeaning"></p>
+      <p class="example" id="resExample"></p>
+    </div>
+    <div class="result-foot">
+      <p class="saved-note" id="resSaved"></p>
+      <button class="linklike" id="resUndo">記録を取り消す</button>
+    </div>
+  </article>
+
+  <div id="lookupEmpty" class="empty">
+    <p>読書の途中で出会った<br>知らない言葉をここへ。</p>
+    <p class="sub">調べた言葉は自動で単語帳に残ります。</p>
+  </div>
+</section>
+
+<section id="view-list" class="view">
+  <div class="filter-row">
+    <select id="filterBook" aria-label="本で絞り込む"></select>
+    <input type="search" id="filterText" placeholder="単語帳を検索">
+  </div>
+  <ul id="wordList" class="word-list"></ul>
+  <div id="listEmpty" class="empty" hidden>
+    <p>まだ言葉がありません。</p>
+    <p class="sub">「調べる」から最初のひと言葉を。</p>
+  </div>
+</section>
+
+<section id="view-review" class="view">
+  <div class="review-controls">
+    <label class="check">
+      <input type="checkbox" id="onlyUnlearned" checked>
+      <span>まだ覚えていない言葉だけ</span>
+    </label>
+    <span class="review-progress" id="reviewProgress"></span>
+  </div>
+
+  <div id="reviewStage">
+    <div id="reviewCard" class="card flashcard" hidden>
+      <p class="flash-word" id="flashWord"></p>
+      <div id="flashBack" hidden>
+        <p class="reading" id="flashReading"></p>
+        <p class="meaning" id="flashMeaning"></p>
+        <p class="example" id="flashExample"></p>
+        <p class="flash-src" id="flashSrc"></p>
+      </div>
+      <p class="flash-hint" id="flashHint">タップして答えを見る</p>
+    </div>
+    <div class="review-actions" id="reviewActions" hidden>
+      <button id="btnStill">まだ</button>
+      <button class="primary" id="btnGot">覚えた</button>
+    </div>
+    <div id="reviewEmpty" class="empty">
+      <p>復習する言葉がありません。</p>
+      <p class="sub">言葉が貯まったらここでめくって覚えましょう。</p>
+    </div>
+    <div id="reviewDone" class="empty" hidden>
+      <p>今日の復習はおしまい。</p>
+      <p class="sub" id="reviewDoneStats"></p>
+      <button id="reviewRestart">もう一度</button>
+    </div>
+  </div>
+</section>
+
+<section id="view-settings" class="view">
+  <h2 class="section-title">設定</h2>
+
+  <div class="card setting-card">
+    <h3>Claude APIキー</h3>
+    <p class="sub">意味と読みの生成に使います。キーはこの端末の中にだけ保存されます。</p>
+    <div class="keyrow">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+      <button id="apiKeySave">保存</button>
+    </div>
+    <p class="sub">キーは <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> で取得できます。</p>
+  </div>
+
+  <div class="card setting-card">
+    <h3>見た目</h3>
+    <div class="keyrow">
+      <select id="themeSelect">
+        <option value="auto">自動(昼は紙、夜は読書灯)</option>
+        <option value="light">常に昼 — 紙の辞書</option>
+        <option value="dark">常に夜 — 読書灯</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card setting-card">
+    <h3>バックアップ</h3>
+    <p class="sub" id="statsLine"></p>
+    <div class="keyrow">
+      <button id="exportBtn">書き出す</button>
+      <button id="importBtn">読み込む</button>
+      <input type="file" id="importInput" accept="application/json" hidden>
+    </div>
+    <p class="sub">機種変更の前に「書き出す」でファイルを保存しておくと安心です。</p>
+  </div>
+</section>
+
+</main>
+
+<nav class="tabbar">
+  <button class="tab active" data-view="view-lookup">
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><line x1="16" y1="16" x2="20.5" y2="20.5"/></svg>
+    <span>調べる</span>
+  </button>
+  <button class="tab" data-view="view-list">
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><line x1="4" y1="18.8" x2="19" y2="18.8"/></svg>
+    <span>単語帳</span>
+  </button>
+  <button class="tab" data-view="view-review">
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="7" y="3.5" width="13" height="16" rx="2"/><path d="M4 7v11.5A2.5 2.5 0 0 0 6.5 21H17"/></svg>
+    <span>復習</span>
+  </button>
+</nav>
+
+<div id="toast" role="status"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
