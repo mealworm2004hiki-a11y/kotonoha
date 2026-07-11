@@ -47,7 +47,7 @@
     <button type="submit" class="primary" id="searchBtn">調べる</button>
   </form>
   <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
-  <p class="hint-line">読めない漢字は、その言葉が大きく写るように撮ってください。</p>
+  <p class="hint-line">読めない漢字を撮ると、次の画面で言葉の部分を枠で囲めます。</p>
 
   <p id="lookupStatus" class="status" hidden></p>
 
@@ -170,6 +170,23 @@
     <span>復習</span>
   </button>
 </nav>
+
+<div id="cropOverlay" class="crop-overlay" hidden>
+  <div class="crop-wrap">
+    <canvas id="cropCanvas"></canvas>
+    <div id="cropBox" class="crop-box">
+      <span class="crop-handle" data-h="nw"></span>
+      <span class="crop-handle" data-h="ne"></span>
+      <span class="crop-handle" data-h="sw"></span>
+      <span class="crop-handle" data-h="se"></span>
+    </div>
+  </div>
+  <p class="crop-hint">言葉がちょうど入るように、枠を動かしてください</p>
+  <div class="crop-actions">
+    <button id="cropCancel">キャンセル</button>
+    <button class="primary" id="cropConfirm">この範囲で調べる</button>
+  </div>
+</div>
 
 <div id="toast" role="status"></div>
 

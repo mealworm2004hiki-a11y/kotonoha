@@ -184,24 +184,120 @@ async function undoSave() {
   toast("記録を取り消しました");
 }
 
-/* 写真をリサイズしてbase64に */
-function imageToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 1400;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+/* ---------- 写真トリミング ---------- */
+let cropState = null;
+
+function openCropper(file) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    const canvas = $("#cropCanvas");
+    const maxW = Math.min(window.innerWidth - 32, 480);
+    const maxH = window.innerHeight * 0.5;
+    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+
+    const bw = canvas.width * 0.6;
+    const bh = canvas.height * 0.26;
+    cropState = {
+      img,
+      scale,
+      canvasW: canvas.width,
+      canvasH: canvas.height,
+      rect: {
+        x: (canvas.width - bw) / 2,
+        y: (canvas.height - bh) / 2,
+        w: bw,
+        h: bh,
+      },
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("写真を読み込めませんでした。")); };
-    img.src = url;
+    layoutCropBox();
+    $("#cropOverlay").hidden = false;
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast("写真を読み込めませんでした"); };
+  img.src = url;
+}
+
+function layoutCropBox() {
+  const box = $("#cropBox");
+  const { rect } = cropState;
+  box.style.left = rect.x + "px";
+  box.style.top = rect.y + "px";
+  box.style.width = rect.w + "px";
+  box.style.height = rect.h + "px";
+}
+
+function clampCropRect() {
+  const { rect, canvasW, canvasH } = cropState;
+  rect.w = Math.max(32, Math.min(rect.w, canvasW));
+  rect.h = Math.max(32, Math.min(rect.h, canvasH));
+  rect.x = Math.max(0, Math.min(rect.x, canvasW - rect.w));
+  rect.y = Math.max(0, Math.min(rect.y, canvasH - rect.h));
+}
+
+function setupCropDrag() {
+  const box = $("#cropBox");
+  let mode = null, startX = 0, startY = 0, startRect = null;
+
+  box.addEventListener("pointerdown", (e) => {
+    if (!cropState) return;
+    mode = e.target.dataset.h || "move";
+    startX = e.clientX;
+    startY = e.clientY;
+    startRect = { ...cropState.rect };
+    box.setPointerCapture(e.pointerId);
   });
+
+  box.addEventListener("pointermove", (e) => {
+    if (!mode || !cropState) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const r = cropState.rect;
+    if (mode === "move") {
+      r.x = startRect.x + dx;
+      r.y = startRect.y + dy;
+    } else {
+      if (mode.includes("w")) { r.x = startRect.x + dx; r.w = startRect.w - dx; }
+      if (mode.includes("e")) { r.w = startRect.w + dx; }
+      if (mode.includes("n")) { r.y = startRect.y + dy; r.h = startRect.h - dy; }
+      if (mode.includes("s")) { r.h = startRect.h + dy; }
+    }
+    clampCropRect();
+    layoutCropBox();
+  });
+
+  const endDrag = () => { mode = null; };
+  box.addEventListener("pointerup", endDrag);
+  box.addEventListener("pointercancel", endDrag);
+}
+
+function closeCropper() {
+  $("#cropOverlay").hidden = true;
+  cropState = null;
+  $("#cameraInput").value = "";
+}
+
+function confirmCrop() {
+  if (!cropState) return;
+  const { img, scale, rect } = cropState;
+  const sx = rect.x / scale, sy = rect.y / scale;
+  const sw = rect.w / scale, sh = rect.h / scale;
+  const maxOut = 1200;
+  const outScale = Math.min(1, maxOut / Math.max(sw, sh));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(sw * outScale);
+  canvas.height = Math.round(sh * outScale);
+  canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  const b64 = canvas.toDataURL("image/jpeg", 0.88).split(",")[1];
+  const hint = $("#lookupInput").value.trim();
+  closeCropper();
+  doLookup([
+    { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
+    { type: "text", text: PHOTO_PROMPT + (hint ? `ヒント:「${hint}」に近い言葉です。` : "") },
+  ]);
 }
 
 /* ---------- 本セレクタ ---------- */
@@ -471,22 +567,14 @@ async function init() {
   });
 
   $("#cameraBtn").addEventListener("click", () => $("#cameraInput").click());
-  $("#cameraInput").addEventListener("change", async (e) => {
+  $("#cameraInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
-    e.target.value = "";
     if (!file) return;
-    try {
-      setStatus("写真を読み込んでいます…");
-      const b64 = await imageToBase64(file);
-      const hint = $("#lookupInput").value.trim();
-      doLookup([
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
-        { type: "text", text: PHOTO_PROMPT + (hint ? `ヒント:「${hint}」に近い言葉です。` : "最も難しそうな言葉(難読・難解な言葉)を選んでください。") },
-      ]);
-    } catch (err) {
-      setStatus(err.message, true);
-    }
+    openCropper(file);
   });
+  setupCropDrag();
+  $("#cropCancel").addEventListener("click", closeCropper);
+  $("#cropConfirm").addEventListener("click", confirmCrop);
 
   $("#resUndo").addEventListener("click", undoSave);
 
