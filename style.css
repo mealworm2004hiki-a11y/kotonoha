@@ -324,6 +324,7 @@ button.primary {
   gap: 14px;
   padding: 16px;
 }
+.crop-overlay[hidden] { display: none; }
 .crop-wrap {
   position: relative;
   overflow: hidden;
