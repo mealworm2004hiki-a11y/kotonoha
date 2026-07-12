@@ -82,9 +82,14 @@ const SYSTEM_PROMPT =
   "表記ゆれや誤字があっても最も可能性の高い言葉を推定してください。";
 
 const PHOTO_PROMPT =
-  "この写真は本のページです。写真の中の言葉をひとつ特定し、指定のJSON形式で出力してください。";
+  "この写真は本のページです。写真の中の文字を一字ずつ丁寧に読み取り、言葉をひとつ特定した上で、指定のJSON形式で出力してください。" +
+  "崩し気味の書体や難読漢字でも、文脈から最も可能性の高い字を推定してください。";
+
+const TEXT_MODEL = "claude-haiku-4-5";
+const VISION_MODEL = "claude-sonnet-5";
 
 async function callClaude(content) {
+  const hasImage = content.some((c) => c.type === "image");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -94,7 +99,7 @@ async function callClaude(content) {
       "anthropic-dangerous-direct-browser-access": "true",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5",
+      model: hasImage ? VISION_MODEL : TEXT_MODEL,
       max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content }],
